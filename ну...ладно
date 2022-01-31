@@ -1,0 +1,79 @@
+import requests
+from bs4 import BeautifulSoup
+import json
+import re
+import pandas as pd
+import os
+
+def display(text):
+    text = text.strip()
+    for line in text.split('~'):
+        items = line.split('¬')
+        for item in items:
+            parts = item.split('÷')
+            print('>', '|'.join(parts))
+
+def format_statisctic(text):
+    text = text.strip()
+
+    data = []
+    
+    row = []
+
+    match_part = '' # to remember if it is full match or 1st/2nd halg
+
+    for line in text.split('~'):
+        items = line.split('¬')
+        for item in items:
+            parts = item.split('÷')
+
+            # remember     
+            if parts[0] == 'SE':
+                match_part = parts[1]
+
+            # create row with data
+            if parts[0] in ('SG', 'SH', 'SI'):
+                row.append(parts[1])
+
+            # add row to data with `match_part`
+            if len(row) == 3:
+                data.append([match_part] + row)
+                # empty row for new data
+                row = []
+
+    # convert all to DataFrame
+    df = pd.DataFrame(data, columns=['Part', 'Stat', 'S1', 'S2'])
+    
+    print(df)
+
+# -------------------------
+        
+url = 'https://www.flashscore.com/match/tE4RoHzB/#h2h/overall'
+headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36'}
+
+s = requests.Session()
+s.headers.update(headers)
+
+response = s.get(url, headers=headers)
+soup = BeautifulSoup(response.text, 'html.parser')
+
+scripts = soup.find_all('script', {'type':"text/javascript"})
+for script in scripts:
+    if 'window.environment =' in str(script):
+        scriptStr = str(script)
+        jsonMatch = re.compile("{.*}")
+        jsonStr = jsonMatch.search(scriptStr)[0]
+        jsonData = json.loads(jsonStr)
+
+
+fsign = jsonData['config']['app']['feed_sign']
+
+s.headers.update({'x-fsign':fsign})
+
+os.system('cls')
+print('------------------ H2H ------------------')
+url = 'https://d.flashscore.com/x/feed/df_st_1_tE4RoHzB'
+response = s.get(url)
+# display(response.text)
+text_statictics = response.text
+format_statisctic(text_statictics)
